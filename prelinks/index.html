@@ -1,16 +1,27 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Prelinks - Demo</title>
+        <title>PreLinks - Demo</title>
+        <link href="demo.css" rel="stylesheet">
+        
+        <meta name="prelinks-progress" content="blur">
+        <meta name="prelinks-cache-control" content="no-cache">
     </head>
     <body>
-        <h1>Prelinks</h1>
-        <ul>
-            <li><a href="page1.html">Page 1</a></li>
-            <li><a href="page2.html">Page 2</a></li>
-        </ul>
+        <h1>PreLinks</h1>
+        <ul></ul>
+
+        <p>Time is <strong></strong></p>
         
-        <script>console.log('Index page init');</script>
-        <script src="bundle/prelinks.js" type="module" id="prelinks"></script>
+        <script>
+            document.querySelector('ul').innerHTML = 
+                '<li><a href="page1.html">Page 1</a></li>' +
+                '<li><a href="page2.html" data-prelink="false">Page 2 (prelinks disabled)</a></li>';
+
+            document.querySelector('strong').innerText = new Date().toLocaleTimeString();
+
+            console.log('Index page init');            
+        </script>
+        <script src="bundle/prelinks.js" type="module" id="prelinks" defer></script>
     </body>
 </html>
