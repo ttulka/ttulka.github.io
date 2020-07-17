@@ -1,15 +1,47 @@
 (function () {
     'use strict';
 
-    class PreLinks {
-        constructor(document, loader, history, progressMethods) {
+    class PageLoader {
+        constructor(document) {
             this.document = document;
-            this.loader = loader;
-            this.history = history;
-            this.anchors = [];
+        }
+        show(page) {
+            const newBody = page.querySelector('body');
+            const newHead = page.querySelector('head');
 
-            const progressMethodId = this._progressMethodIdFromHead(document);
-            this.progressMethod = progressMethods.find(({ id }) => id === progressMethodId);
+            this.document.querySelector('head').innerHTML = newHead.innerHTML;
+
+            const body = this.document.querySelector('body');
+            body.innerHTML = newBody.innerHTML;
+
+            body.querySelectorAll('script')
+                .forEach(s => s.parentNode.replaceChild(this._scriptElement(s), s));
+        }    
+        _scriptElement(element) {
+            if (element.id === 'prelinks') {
+                return element;
+            }
+            const scriptEl = document.createElement("script");
+            scriptEl.textContent = element.textContent;
+            scriptEl.async = false;
+            this._copyElementAttributes(scriptEl, element);
+            return scriptEl;
+        }
+        _copyElementAttributes(dest, src) {
+            for (const { name, value } of src.attributes) {
+                dest.setAttribute(name, value);
+            }
+        }
+    }
+
+    class PreLinks {
+        constructor(document, cache, history, progressMethod) {
+            this.document = document;
+            this.cache = cache;
+            this.history = history;
+            this.progressMethod = progressMethod;
+            this.loader = new PageLoader(document);
+            this.anchors = [];
 
             this._onClickEvent = this._onClickEvent.bind(this);
             this._onMouseenterEvent = this._onMouseenterEvent.bind(this);
@@ -33,7 +65,7 @@
 
             this.history.addEventListener('popped', this._onHistoryPoppedEvent);
 
-            this.loader.add(link, this.document);
+            this.cache.put(link, this.document);
 
             console.debug('Prelinks initialized.');
         }
@@ -49,7 +81,8 @@
         }
         showLink(link) {
             this.showProgress();
-            this.loader.show(link)
+            this.cache.page(link)
+                .then(p => this.loader.show(p))
                 .then(_ => {
                     this._destroy();
                     this._init(link);
@@ -57,8 +90,8 @@
                 })
                 .catch(err => console.error('Cannot show the page.', link, err));
         }
-        loadLink(link) {
-            this.loader.load(link)
+        loadLink(link, force = false) {
+            this.cache.load(link, force)
                 .catch(err => console.error('Cannot load the page.', link, err));
         }
         showProgress() {
@@ -87,7 +120,8 @@
                 const link = e.target.href;
                 if (link) {
                     console.debug('Link entered', link);
-                    this.loadLink(link);
+                    const force = e.target.getAttribute('data-prelink-cache') === 'false';
+                    this.loadLink(link, force);
                 }
             }
         }
@@ -97,80 +131,6 @@
                 console.debug('Link popped', link);
                 this.showLink(link);
             }
-        }
-        _progressMethodIdFromHead() {
-            const progressMeta = this.document.querySelector('head meta[name="prelinks-progress"]');
-            return progressMeta ? progressMeta.getAttribute('content') : 'none';
-        }
-    }
-
-    class PageLoader {
-        constructor(document, history) {
-            this.document = document;
-            this.pages = new Map();
-            this.loading = new Set();
-            console.debug('PageLoader constructed.');
-        }
-        async load(link, force = false) {
-            if (force || !this.loading.has(link) && !this.pages.has(link)) {
-                this.loading.add(link);
-
-                const html = await fetch(link)
-                    .then(r => r.text())
-                    .then(r => new DOMParser().parseFromString(r, 'text/html'));
-                this.pages.set(link, html);
-
-                this.loading.delete(link);
-
-                console.debug('Loaded', link);
-            }
-        }
-        async show(link) {
-            if (!this.pages.has(link)) {
-                await this.load(link);
-            }
-            if (this._forceLoad(this.pages.get(link))) {
-                await this.load(link, true);
-            }
-            const page = this.pages.get(link).cloneNode(true);
-            const body = page.querySelector('body');
-            const head = page.querySelector('head');
-
-            this.document.querySelector('head').innerHTML = head.innerHTML;
-
-            const pageBody = this.document.querySelector('body');
-            pageBody.innerHTML = body.innerHTML;
-
-            pageBody.querySelectorAll('script').forEach(s => s.parentNode.replaceChild(this._scriptElement(s), s));
-
-            
-
-            console.debug('Shown', link);
-        }
-        add(link, document) {
-            if (!this.pages.has(link)) {
-                this.pages.set(link, document.cloneNode(true));
-                console.debug('Loaded', link);
-            }
-        }
-        _scriptElement(element) {
-            if (element.id === 'prelinks') {
-                return element;
-            }
-            const scriptEl = document.createElement("script");
-            scriptEl.textContent = element.textContent;
-            scriptEl.async = false;
-            this._copyElementAttributes(scriptEl, element);
-            return scriptEl;
-        }
-        _copyElementAttributes(dest, src) {
-            for (const { name, value } of src.attributes) {
-                dest.setAttribute(name, value);
-            }
-        }
-        _forceLoad(page) {
-            const meta = page.querySelector('head meta[name="prelinks-cache-control"]');
-            return meta && meta.getAttribute('content') === 'no-cache';
         }
     }
 
@@ -217,18 +177,148 @@
         }
     }
 
+    class PageCache {
+        constructor(limit) {
+            this.cache = new LmitedPageCache(limit && limit > 1 ? limit : 10);
+            this.loading = new Set();
+
+            console.debug('PageCache constructed.');
+        }
+        async load(link, force = false) {
+            let cache = this.cache;
+            if (force || !this.loading.has(link) && !cache.has(link)) {
+                this.loading.add(link);
+
+                const html = await htmlPage(link);
+                
+                cache = cache.put(link, html);
+                this.cache = cache;
+
+                this.loading.delete(link);
+
+                console.debug('Loaded', link);
+
+            } else {
+                cache.hit(link);
+            }
+            return cache;
+        }
+        async page(link) {
+            let cache = this.cache;
+            if (!this.cache.has(link)) {
+                cache = await this.load(link);
+            
+            } else if (this._forceLoad(this.cache.get(link))) {
+                cache = await this.load(link, true);
+            }
+            return cache.get(link).cloneNode(true);
+        }
+        put(link, document) {
+            const cache = this.cache;
+            if (!cache.has(link)) {
+                this.cache = cache.put(link, document.cloneNode(true));
+                console.debug('Loaded', link);
+            }
+        }
+        _forceLoad(page) {
+            const meta = page.querySelector('head meta[name="prelinks-cache-control"]');
+            return meta && meta.getAttribute('content') === 'no-cache';
+        }
+    }
+
+    class NoCache {
+        async page(link) {
+            const page = await htmlPage(link);
+            console.debug('Loaded', link);
+            return page;
+        }
+        async load(link, force) {
+            console.debug('No cache.');
+        }
+        put(link, document) {
+            console.debug('No cache.');
+        }
+    }
+
+    class LmitedPageCache {
+        constructor(limit, initCache = new Map()) {
+            this.limit = limit;
+            this.pages = initCache;
+        }
+        get(link) {
+            if (this.pages.has(link)) {
+                return this.pages.get(link).document;
+            }
+        }
+        put(link, document) {
+            const newCache = new LmitedPageCache(this.limit, this.pages);
+
+            const hits = newCache.pages.has(link) ? newCache.pages.get(link).hits + 1 : 1;
+            newCache.pages.set(link, { document, hits });
+
+            newCache._cleanup(link);
+            return newCache;
+        }
+        has(link) {
+            return this.pages.has(link);
+        }
+        hit(link) {
+            const page = this.pages.get(link);
+            if (page) {
+                page.hits++;
+            }
+        }
+        _cleanup(currentLink) {
+            if (this.pages.size > this.limit) {
+                const entries = this.pages.entries();
+                let toRemove;
+                let min = Number.MAX_VALUE;
+                for (let [link, page] of entries) {
+                    if (page.hits < min && link !== currentLink) {
+                        toRemove = link;
+                        min = page.hits;
+                    }
+                }
+                if (toRemove) {
+                    this.pages.delete(toRemove);
+
+                    console.debug('Removed from cache', toRemove);
+                }
+            }
+        }
+    }
+
+    function htmlPage(link) {
+        return fetch(link)
+            .then(r => r.text())
+            .then(r => new DOMParser().parseFromString(r, 'text/html'))
+    }
+
     (function () {
+        const progressMethods = [
+            new ProgressMethod('blur', 'filter', 'blur(1rem)')
+        ];
+
         const prelinks = new PreLinks(
             window.document,
-            new PageLoader(window.document),
+            settingValue('cache-control') !== 'no-cache'
+                ? new PageCache(
+                    settingValue('cache-limit'))
+                : new NoCache(),
             new LinksHistory(
                 window,
                 window.history),
-            [new ProgressMethod('blur', 'filter', 'blur(1rem)')]);
+            progressMethods.find(({ id }) => id === settingValue('progress', 'none'))
+        );
 
         prelinks.start(window.location.href);
 
         window.addEventListener('unload', _ => prelinks.stop());
+
+        function settingValue(name, def = null) {
+            const meta = window.document.querySelector(`head meta[name="prelinks-${name}"]`);
+            return meta && meta.getAttribute('content') || def;
+        }
     })();
 
 }());
