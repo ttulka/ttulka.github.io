@@ -105,7 +105,7 @@
             }
         }
         _onClickEvent(e) {
-            if (e.target.getAttribute('data-prelink') !== 'false') {
+            if (e.target.getAttribute('data-prelinks') !== 'false') {
                 e.preventDefault();
                 const link = e.target.href;
                 if (link) {
@@ -116,11 +116,11 @@
             }
         }
         _onMouseenterEvent(e) {
-            if (e.target.getAttribute('data-prelink') !== 'false') {
+            if (e.target.getAttribute('data-prelinks') !== 'false') {
                 const link = e.target.href;
                 if (link) {
                     console.debug('Link entered', link);
-                    const force = e.target.getAttribute('data-prelink-cache') === 'false';
+                    const force = e.target.getAttribute('data-prelinks-cache') === 'false';
                     this.loadLink(link, force);
                 }
             }
@@ -178,15 +178,16 @@
     }
 
     class PageCache {
-        constructor(limit) {
+        constructor(limit, alwaysForce = false) {
             this.cache = new LmitedPageCache(limit && limit > 1 ? limit : 10);
+            this.alwaysForce = !!alwaysForce;
             this.loading = new Set();
 
             console.debug('PageCache constructed.');
         }
         async load(link, force = false) {
             let cache = this.cache;
-            if (force || !this.loading.has(link) && !cache.has(link)) {
+            if (force || this.alwaysForce || !this.loading.has(link) && !cache.has(link)) {
                 this.loading.add(link);
 
                 const html = await htmlPage(link);
@@ -223,20 +224,6 @@
         _forceLoad(page) {
             const meta = page.querySelector('head meta[name="prelinks-cache-control"]');
             return meta && meta.getAttribute('content') === 'no-cache';
-        }
-    }
-
-    class NoCache {
-        async page(link) {
-            const page = await htmlPage(link);
-            console.debug('Loaded', link);
-            return page;
-        }
-        async load(link, force) {
-            console.debug('No cache.');
-        }
-        put(link, document) {
-            console.debug('No cache.');
         }
     }
 
@@ -301,10 +288,9 @@
 
         const prelinks = new PreLinks(
             window.document,
-            settingValue('cache-control') !== 'no-cache'
-                ? new PageCache(
-                    settingValue('cache-limit'))
-                : new NoCache(),
+            new PageCache(
+                settingValue('cache-limit'),
+                settingValue('cache-control') === 'no-cache'),
             new LinksHistory(
                 window,
                 window.history),
