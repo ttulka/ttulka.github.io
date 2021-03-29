@@ -24,7 +24,7 @@ async function loadWasm(source) {
     const memory = new WebAssembly.Memory({ initial: nPages });
 
     const wasm = await WebAssembly
-        .instantiateStreaming(fetch('./build/optimized.wasm'), {
+        .instantiateStreaming(fetch('./optimized.wasm'), {
             env: {
                 memory, // --importMemory
                 abort: (_msg, _file, line, column) => console.error(`Abort at ${line}:${column}`)
