@@ -18,10 +18,11 @@
             text-align: center;
         }
         textarea, input, button {
-            background-color: lightgray;            
+            background-color: lightgray;
         }
         textarea, input {
             width: 100%;
+            font-family: monospace;
             font-size: 1.2rem;
             padding: 0.2em 0.5em;
         }
@@ -60,10 +61,10 @@
 <body>
     <h1>brainfuck online interpreter</h1>
     <p>
-        <textarea id="source" rows="10" cols="100">++++++++[&gt;++++[&gt;++&gt;+++&gt;+++&gt;+&lt;&lt;&lt;&lt;-]&gt;+&gt;+&gt;-&gt;&gt;+[&lt;]&lt;-]&gt;&gt;.&gt;---.+++++++..+++.&gt;&gt;.&lt;-.&lt;.+++.------.--------.&gt;&gt;+.&gt;++.</textarea>
+        <textarea id="source" rows="10" cols="100" placeholder="program code" autocomplete="off">++++++++[&gt;++++[&gt;++&gt;+++&gt;+++&gt;+&lt;&lt;&lt;&lt;-]&gt;+&gt;+&gt;-&gt;&gt;+[&lt;]&lt;-]&gt;&gt;.&gt;---.+++++++..+++.&gt;&gt;.&lt;-.&lt;.+++.------.--------.&gt;&gt;+.&gt;++.</textarea>
     </p>
     <p>
-        <input id="input" size="100" placeholder="program input">
+        <input id="input" size="100" placeholder="program input" autocomplete="off">
     </p>
     <p>
         <button id="run">Run</button>

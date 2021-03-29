@@ -11,11 +11,16 @@ loadWasm(source).then(wasm => {
         inputGen = readChar(document.querySelector('#input').value);
 
         const measureLabel = 'brainfuck';
-        console.time(measureLabel);
-        
-        wasm.brainfuck();
-        
-        console.timeEnd(measureLabel);
+        console.time(measureLabel);        
+        try {
+            wasm.brainfuck();
+
+        } catch (err) {
+            outputDiv.textContent += err;
+            console.error(err)
+        } finally {
+            console.timeEnd(measureLabel);
+        }
     }
 });
 
