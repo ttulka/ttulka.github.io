@@ -2,7 +2,7 @@ const outputDiv = document.querySelector('#output');
 let commandGen = readChar('');
 let inputGen = readChar('');
 
-loadWasm(source).then(wasm => {
+loadWasm().then(wasm => {
     document.querySelector('#run').onclick = e => {
         e.preventDefault();
         outputDiv.textContent = '';
@@ -24,14 +24,10 @@ loadWasm(source).then(wasm => {
     }
 });
 
-async function loadWasm(source) {
-    const nPages = ((source.length + 0xffff) & ~0xffff) >>> 16;
-    const memory = new WebAssembly.Memory({ initial: nPages });
-
+async function loadWasm() {
     const wasm = await WebAssembly
         .instantiateStreaming(fetch('optimized.wasm'), {
             env: {
-                memory, // --importMemory
                 abort: (_msg, _file, line, column) => console.error(`Abort at ${line}:${column}`)
             },
             index: {
