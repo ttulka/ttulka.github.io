@@ -54,7 +54,7 @@ function writeChar(charCode) {
 }
 
 function debug(pointer, value) {
-    const msg = `pointer: ${pointer}, value: ${String.fromCharCode(value)}`;
+    const msg = `pointer: ${pointer}, value: ${value}`;
     console.debug(msg);
     outputDiv.textContent += `\n${msg}\n`;
 }
