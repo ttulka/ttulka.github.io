@@ -29,7 +29,7 @@ async function loadWasm(source) {
     const memory = new WebAssembly.Memory({ initial: nPages });
 
     const wasm = await WebAssembly
-        .instantiateStreaming(fetch('./optimized.wasm'), {
+        .instantiateStreaming(fetch('optimized.wasm'), {
             env: {
                 memory, // --importMemory
                 abort: (_msg, _file, line, column) => console.error(`Abort at ${line}:${column}`)
@@ -37,7 +37,9 @@ async function loadWasm(source) {
             index: {
                 command: () => commandGen.next().value,
                 read: () => inputGen.next().value,
-                write: writeChar
+                write: writeChar,
+                debug,
+                error
             }
         });
     return wasm.instance.exports;
@@ -49,4 +51,27 @@ function* readChar(str) {
 
 function writeChar(charCode) {
     outputDiv.textContent += String.fromCharCode(charCode);
+}
+
+function debug(pointer, value) {
+    const msg = `pointer: ${pointer}, value: ${String.fromCharCode(value)}`;
+    console.debug(msg);
+    outputDiv.textContent += `\n${msg}\n`;
+}
+
+function error(kind, value) {
+    let msg;
+    switch (kind) {
+        case 1: 
+            msg = `index out of bounds: ${value}`;
+            break;
+        case 2: 
+            msg = `unmatched: ${String.fromCharCode(value)}`;
+            break;
+        default:
+            msg = `unknown error (${kind}): ${value}`;
+            break;
+    }
+    console.debug(msg);
+    outputDiv.textContent += `\n${msg}\n`;
 }
