@@ -72,6 +72,6 @@ function error(kind, value) {
             msg = `unknown error (${kind}): ${value}`;
             break;
     }
-    console.debug(msg);
+    console.error(msg);
     outputDiv.textContent += `\n${msg}\n`;
 }
