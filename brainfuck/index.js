@@ -56,7 +56,7 @@ function writeChar(charCode) {
 function debug(pointer, value) {
     const msg = `pointer: ${pointer}, value: ${value}`;
     console.debug(msg);
-    outputDiv.textContent += `\n${msg}\n`;
+    outputDiv.textContent += `\nDebug: ${msg}\n`;
 }
 
 function error(kind, value) {
@@ -73,5 +73,5 @@ function error(kind, value) {
             break;
     }
     console.error(msg);
-    outputDiv.textContent += `\n${msg}\n`;
+    outputDiv.textContent += `\nError: ${msg}\n`;
 }
